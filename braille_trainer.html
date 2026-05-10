@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Braille Trainer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Nunito:wght@400;700;900&display=swap');
+  :root {
+    --bg:#0f0f1a;--surface:#1a1a2e;--card:#16213e;
+    --accent:#e94560;--accent2:#0f3460;
+    --dot-off:#1e2a45;--dot-on:#e94560;--dot-border:#2e3f5c;
+    --text:#eaeaea;--muted:#7a8399;--green:#00d68f;--yellow:#ffd166;--blue:#4d9de0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;
+    background-image:linear-gradient(rgba(233,69,96,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(233,69,96,.03) 1px,transparent 1px);
+    background-size:40px 40px;pointer-events:none;}
+
+  /* MODE SCREEN */
+  #modeScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:100vh;width:100%;max-width:420px;padding:30px 24px;gap:28px;}
+  .app-title{font-family:'Space Mono',monospace;font-size:1.4rem;letter-spacing:3px;
+    color:var(--accent);text-transform:uppercase;text-align:center;}
+  .app-sub{font-size:.7rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+  .mode-label{font-size:.65rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;text-align:center;}
+  .mode-cards{display:flex;flex-direction:column;gap:14px;width:100%;}
+  .mode-card{background:var(--card);border:1.5px solid var(--dot-border);border-radius:18px;
+    padding:22px 20px;cursor:pointer;transition:border-color .2s,transform .1s,box-shadow .2s;
+    display:flex;align-items:center;gap:18px;}
+  .mode-card:active{transform:scale(.97);}
+  .mode-card.mode-random{border-color:var(--accent);}
+  .mode-card.mode-random:hover{box-shadow:0 0 24px rgba(233,69,96,.25);}
+  .mode-card.mode-az{border-color:var(--blue);}
+  .mode-card.mode-az:hover{box-shadow:0 0 24px rgba(77,157,224,.25);}
+  .mode-icon{font-size:2.2rem;flex-shrink:0;}
+  .mode-info{display:flex;flex-direction:column;gap:4px;}
+  .mode-name{font-family:'Space Mono',monospace;font-size:1rem;font-weight:700;letter-spacing:1px;}
+  .mode-random .mode-name{color:var(--accent);}
+  .mode-az .mode-name{color:var(--blue);}
+  .mode-desc{font-size:.78rem;color:var(--muted);line-height:1.4;}
+  .mode-badge{margin-left:auto;padding:4px 10px;border-radius:20px;
+    font-size:.6rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;flex-shrink:0;}
+  .mode-random .mode-badge{background:rgba(233,69,96,.2);color:var(--accent);}
+  .mode-az .mode-badge{background:rgba(77,157,224,.2);color:var(--blue);}
+
+  /* GAME SCREEN */
+  #gameScreen{display:none;flex-direction:column;align-items:center;width:100%;}
+  header{width:100%;max-width:420px;padding:16px 20px 8px;display:flex;align-items:center;gap:10px;}
+  .back-btn{background:var(--surface);border:1px solid var(--dot-border);border-radius:8px;
+    padding:6px 12px;color:var(--muted);font-size:.75rem;cursor:pointer;
+    font-family:'Nunito',sans-serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+    transition:color .15s;}
+  .back-btn:hover{color:var(--text);}
+  .header-title{font-family:'Space Mono',monospace;font-size:.9rem;letter-spacing:2px;flex:1;text-align:center;}
+  .header-title.random{color:var(--accent);}
+  .header-title.az{color:var(--blue);}
+  .header-spacer{width:60px;}
+
+  .stats{width:100%;max-width:420px;display:flex;padding:6px 20px;gap:10px;}
+  .stat-box{flex:1;background:var(--surface);border:1px solid var(--dot-border);
+    border-radius:10px;padding:8px 10px;text-align:center;}
+  .stat-box .val{font-family:'Space Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--text);}
+  .stat-box .lbl{font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+
+  .game-card{width:100%;max-width:420px;background:var(--card);border:1px solid var(--dot-border);
+    border-radius:20px;margin:8px 20px;padding:20px 20px 18px;
+    display:flex;flex-direction:column;align-items:center;gap:16px;position:relative;}
+  .prompt-label{font-size:.62rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+  .target-letter{font-family:'Space Mono',monospace;font-size:5rem;font-weight:700;
+    color:var(--text);line-height:1;transition:transform .15s,color .2s;user-select:none;}
+  .target-letter.correct{color:var(--green);transform:scale(1.1);}
+  .target-letter.wrong{color:var(--accent);transform:scale(.95);}
+
+  .reference-cell{display:grid;grid-template-columns:1fr 1fr;gap:6px;
+    opacity:0;transition:opacity .3s;pointer-events:none;}
+  .reference-cell.show{opacity:1;}
+  .ref-dot{width:14px;height:14px;border-radius:50%;background:var(--dot-off);border:1px solid var(--dot-border);}
+  .ref-dot.on{background:var(--muted);}
+
+  .braille-cell-wrapper{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;}
+  .braille-cell{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:22px;
+    background:var(--surface);border:1.5px solid var(--dot-border);border-radius:18px;touch-action:none;}
+  .dot{width:60px;height:60px;border-radius:50%;background:var(--dot-off);
+    border:2.5px solid var(--dot-border);cursor:pointer;
+    transition:background .1s,border-color .1s,transform .08s,box-shadow .1s;
+    display:flex;align-items:center;justify-content:center;
+    user-select:none;-webkit-user-select:none;position:relative;}
+  .dot::after{content:attr(data-num);position:absolute;font-size:.55rem;
+    color:var(--muted);opacity:.4;font-family:'Space Mono',monospace;}
+  .dot.active{background:var(--dot-on);border-color:var(--accent);
+    box-shadow:0 0 18px rgba(233,69,96,.5),0 0 6px rgba(233,69,96,.8);transform:scale(1.05);}
+  .dot.active::after{color:rgba(255,255,255,.6);}
+  .dot:active{transform:scale(.92);}
+
+  .hint-toggle{font-size:.62rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;
+    cursor:pointer;text-decoration:underline;text-underline-offset:3px;user-select:none;}
+
+  .feedback{width:100%;padding:12px;border-radius:12px;text-align:center;font-weight:700;
+    font-size:.9rem;letter-spacing:1px;opacity:0;transition:opacity .2s;display:none;}
+  .feedback.show{opacity:1;display:block;}
+  .feedback.correct{background:rgba(0,214,143,.15);color:var(--green);border:1px solid rgba(0,214,143,.3);}
+  .feedback.wrong{background:rgba(233,69,96,.12);color:var(--accent);border:1px solid rgba(233,69,96,.3);}
+
+  .btn-row{display:flex;gap:12px;width:100%;}
+  .btn{flex:1;padding:13px 10px;border:none;border-radius:12px;
+    font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:700;cursor:pointer;
+    letter-spacing:1px;text-transform:uppercase;transition:transform .1s,box-shadow .1s;}
+  .btn:active{transform:scale(.96);}
+  .btn-check{background:var(--accent);color:#fff;box-shadow:0 4px 20px rgba(233,69,96,.35);}
+  .btn-clear{background:var(--surface);color:var(--muted);border:1.5px solid var(--dot-border);}
+  .btn-next{background:var(--green);color:#0a1a12;box-shadow:0 4px 20px rgba(0,214,143,.3);display:none;}
+
+  .streak{position:absolute;top:14px;right:14px;background:var(--accent2);
+    border:1px solid var(--dot-border);border-radius:8px;padding:4px 10px;
+    font-family:'Space Mono',monospace;font-size:.7rem;color:var(--yellow);}
+  .streak.hot{background:rgba(255,209,102,.15);border-color:var(--yellow);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,209,102,.4);}50%{box-shadow:0 0 0 6px rgba(255,209,102,0);}}
+
+  .progress-track{width:100%;max-width:420px;padding:0 20px 8px;
+    display:flex;flex-wrap:wrap;gap:6px;justify-content:center;}
+  .prog-dot{width:10px;height:10px;border-radius:50%;background:var(--dot-off);
+    border:1px solid var(--dot-border);transition:background .3s;}
+  .prog-dot.done-correct{background:var(--green);}
+  .prog-dot.done-wrong{background:var(--accent);}
+  .prog-dot.current{background:var(--yellow);}
+
+  .win-screen{display:none;flex-direction:column;align-items:center;
+    gap:16px;padding:30px 20px;text-align:center;width:100%;max-width:420px;}
+  .win-screen h2{font-family:'Space Mono',monospace;font-size:1.4rem;color:var(--green);letter-spacing:2px;}
+  .win-stats{background:var(--surface);border:1px solid var(--dot-border);border-radius:16px;
+    padding:20px 30px;display:flex;flex-direction:column;gap:10px;width:100%;}
+  .win-row{display:flex;justify-content:space-between;font-size:.9rem;}
+  .win-row span:last-child{font-family:'Space Mono',monospace;color:var(--green);}
+  .win-btns{display:flex;gap:12px;width:100%;}
+  .btn-win{flex:1;padding:15px 10px;border:none;border-radius:14px;
+    font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:700;
+    cursor:pointer;letter-spacing:1px;text-transform:uppercase;}
+  .btn-win-restart{background:var(--accent);color:#fff;box-shadow:0 4px 20px rgba(233,69,96,.35);}
+  .btn-win-menu{background:var(--surface);color:var(--muted);border:1.5px solid var(--dot-border);}
+
+  .ref-guide{width:100%;max-width:420px;padding:0 20px 20px;}
+  .ref-title{font-size:.62rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;text-align:center;}
+  .ref-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;}
+  .ref-item{display:flex;flex-direction:column;align-items:center;gap:3px;
+    background:var(--surface);border:1px solid var(--dot-border);border-radius:8px;
+    padding:6px 3px;transition:border-color .2s;}
+  .ref-item.highlight{border-color:var(--accent);}
+  .ref-item .ref-letter{font-family:'Space Mono',monospace;font-size:.75rem;color:var(--text);}
+  .mini-cell{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
+  .mini-dot{width:6px;height:6px;border-radius:50%;background:var(--dot-off);}
+  .mini-dot.on{background:var(--accent);}
+</style>
+</head>
+<body>
+
+<!-- MODE SELECT -->
+<div id="modeScreen">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+    <div class="app-title">Braille Trainer</div>
+    <div class="app-sub">Tap the 6 dots · Guess A–Z</div>
+  </div>
+  <div class="mode-label">Choose a mode to start</div>
+  <div class="mode-cards">
+    <div class="mode-card mode-random" onclick="startGame('random')">
+      <div class="mode-icon">🎲</div>
+      <div class="mode-info">
+        <div class="mode-name">Random Mode</div>
+        <div class="mode-desc">Letters appear in shuffled order. Tests real recall — you can't predict what's next!</div>
+      </div>
+      <div class="mode-badge">Mode 1</div>
+    </div>
+    <div class="mode-card mode-az" onclick="startGame('az')">
+      <div class="mode-icon">🔤</div>
+      <div class="mode-info">
+        <div class="mode-name">A → Z Mode</div>
+        <div class="mode-desc">Letters go A to Z in order. Great for learning the pattern step by step.</div>
+      </div>
+      <div class="mode-badge">Mode 2</div>
+    </div>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="gameScreen">
+  <header>
+    <button class="back-btn" onclick="goMenu()">← Menu</button>
+    <div class="header-title" id="headerTitle">RANDOM</div>
+    <div class="header-spacer"></div>
+  </header>
+
+  <div class="stats">
+    <div class="stat-box"><div class="val" id="scoreVal">0</div><div class="lbl">Score</div></div>
+    <div class="stat-box"><div class="val" id="streakVal">0</div><div class="lbl">Streak</div></div>
+    <div class="stat-box"><div class="val" id="progressVal">1/26</div><div class="lbl">Progress</div></div>
+  </div>
+
+  <div class="game-card" id="gameCard">
+    <div class="streak" id="streakBadge">🔥 0</div>
+    <div class="prompt-label">Spell this letter in Braille</div>
+    <div class="target-letter" id="targetLetter">A</div>
+    <div class="reference-cell" id="refCell"></div>
+    <span class="hint-toggle" id="hintToggle" onclick="toggleHint()">Show hint</span>
+    <div class="braille-cell-wrapper">
+      <div class="prompt-label">Tap the dots</div>
+      <div class="braille-cell">
+        <div class="dot" data-num="1" onclick="toggleDot(this)"></div>
+        <div class="dot" data-num="4" onclick="toggleDot(this)"></div>
+        <div class="dot" data-num="2" onclick="toggleDot(this)"></div>
+        <div class="dot" data-num="5" onclick="toggleDot(this)"></div>
+        <div class="dot" data-num="3" onclick="toggleDot(this)"></div>
+        <div class="dot" data-num="6" onclick="toggleDot(this)"></div>
+      </div>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div class="btn-row">
+      <button class="btn btn-clear" onclick="clearDots()">Clear</button>
+      <button class="btn btn-check" id="checkBtn" onclick="checkAnswer()">Check</button>
+      <button class="btn btn-next" id="nextBtn" onclick="nextLetter()">Next →</button>
+    </div>
+  </div>
+
+  <div class="progress-track" id="progressTrack"></div>
+
+  <div class="win-screen" id="winScreen">
+    <h2>✓ Complete!</h2>
+    <div class="win-stats">
+      <div class="win-row"><span>Mode</span><span id="winMode">-</span></div>
+      <div class="win-row"><span>Letters correct</span><span id="winCorrect">-</span></div>
+      <div class="win-row"><span>Best streak</span><span id="winStreak">-</span></div>
+      <div class="win-row"><span>Score</span><span id="winScore">-</span></div>
+    </div>
+    <div class="win-btns">
+      <button class="btn-win btn-win-menu" onclick="goMenu()">Menu</button>
+      <button class="btn-win btn-win-restart" onclick="restartSame()">Play Again</button>
+    </div>
+  </div>
+
+  <div class="ref-guide" id="refGuide">
+    <div class="ref-title">Braille Reference (A–Z)</div>
+    <div class="ref-grid" id="refGrid"></div>
+  </div>
+</div>
+
+<script>
+const BRAILLE={A:[1],B:[1,2],C:[1,4],D:[1,4,5],E:[1,5],F:[1,2,4],G:[1,2,4,5],H:[1,2,5],I:[2,4],J:[2,4,5],K:[1,3],L:[1,2,3],M:[1,3,4],N:[1,3,4,5],O:[1,3,5],P:[1,2,3,4],Q:[1,2,3,4,5],R:[1,2,3,5],S:[2,3,4],T:[2,3,4,5],U:[1,3,6],V:[1,2,3,6],W:[2,4,5,6],X:[1,3,4,6],Y:[1,3,4,5,6],Z:[1,3,5,6]};
+const LETTERS=Object.keys(BRAILLE);
+let currentMode='random',order=[],currentIdx=0,score=0,streak=0,bestStreak=0,results=[],checked=false,hintVisible=false;
+
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function startGame(mode){
+  currentMode=mode;
+  document.getElementById('modeScreen').style.display='none';
+  document.getElementById('gameScreen').style.display='flex';
+  const ht=document.getElementById('headerTitle');
+  ht.textContent=mode==='random'?'🎲 RANDOM':'🔤 A → Z';
+  ht.className='header-title '+mode;
+  order=mode==='random'?shuffle(LETTERS):[...LETTERS];
+  currentIdx=0;score=0;streak=0;bestStreak=0;results=new Array(26).fill(null);checked=false;hintVisible=false;
+  document.getElementById('gameCard').style.display='flex';
+  document.getElementById('winScreen').style.display='none';
+  document.getElementById('refGuide').style.display='block';
+  document.getElementById('progressTrack').style.display='flex';
+  buildProgressTrack();buildRefGrid();loadLetter();updateStats();
+}
+
+function goMenu(){document.getElementById('gameScreen').style.display='none';document.getElementById('modeScreen').style.display='flex';}
+function restartSame(){startGame(currentMode);}
+
+function buildProgressTrack(){
+  const track=document.getElementById('progressTrack');track.innerHTML='';
+  for(let i=0;i<26;i++){const d=document.createElement('div');d.className='prog-dot'+(i===0?' current':'');d.id='pd-'+i;track.appendChild(d);}
+}
+
+function buildRefGrid(){
+  const grid=document.getElementById('refGrid');grid.innerHTML='';
+  LETTERS.forEach(letter=>{
+    const dots=BRAILLE[letter];const item=document.createElement('div');item.className='ref-item';item.id='ref-'+letter;
+    const lbl=document.createElement('div');lbl.className='ref-letter';lbl.textContent=letter;
+    const cell=document.createElement('div');cell.className='mini-cell';
+    [1,4,2,5,3,6].forEach(n=>{const d=document.createElement('div');d.className='mini-dot'+(dots.includes(n)?' on':'');cell.appendChild(d);});
+    item.appendChild(lbl);item.appendChild(cell);grid.appendChild(item);
+  });
+}
+
+function loadLetter(){
+  checked=false;hintVisible=false;
+  const letter=order[currentIdx];
+  document.getElementById('targetLetter').textContent=letter;
+  document.getElementById('targetLetter').className='target-letter';
+  const refCell=document.getElementById('refCell');refCell.className='reference-cell';
+  buildRefDots(letter);
+  document.getElementById('hintToggle').textContent='Show hint';
+  clearDots();
+  const fb=document.getElementById('feedback');fb.className='feedback';fb.textContent='';
+  document.getElementById('checkBtn').style.display='';
+  document.getElementById('nextBtn').style.display='none';
+  document.getElementById('nextBtn').textContent='Next →';
+  document.getElementById('progressVal').textContent=(currentIdx+1)+'/26';
+  document.querySelectorAll('.ref-item').forEach(el=>el.classList.remove('highlight'));
+}
+
+function buildRefDots(letter){
+  const dots=BRAILLE[letter];const refCell=document.getElementById('refCell');refCell.innerHTML='';
+  [1,4,2,5,3,6].forEach(n=>{const d=document.createElement('div');d.className='ref-dot'+(dots.includes(n)?' on':'');refCell.appendChild(d);});
+}
+
+function toggleDot(el){if(checked)return;el.classList.toggle('active');}
+function clearDots(){document.querySelectorAll('.dot').forEach(d=>d.classList.remove('active'));}
+function getActiveDots(){return[...document.querySelectorAll('.dot.active')].map(d=>parseInt(d.dataset.num));}
+function arraysEqual(a,b){return a.length===b.length&&[...a].sort().join()===[...b].sort().join();}
+
+function checkAnswer(){
+  if(checked)return;checked=true;
+  const letter=order[currentIdx];const correct=BRAILLE[letter];const input=getActiveDots();
+  const fb=document.getElementById('feedback');const tl=document.getElementById('targetLetter');const pd=document.getElementById('pd-'+currentIdx);
+  if(arraysEqual(input,correct)){
+    score+=10+streak*2;streak++;if(streak>bestStreak)bestStreak=streak;results[currentIdx]='correct';
+    fb.textContent='✓ Correct! +'+(10+(streak-1)*2)+' pts';fb.className='feedback correct show';
+    tl.classList.add('correct');pd.className='prog-dot done-correct';
+  }else{
+    streak=0;results[currentIdx]='wrong';
+    fb.textContent='✗ Wrong. Correct dots: '+[...correct].sort().join(', ');
+    fb.className='feedback wrong show';tl.classList.add('wrong');pd.className='prog-dot done-wrong';
+    showHint();document.getElementById('ref-'+letter).classList.add('highlight');
+  }
+  updateStats();
+  document.getElementById('checkBtn').style.display='none';document.getElementById('nextBtn').style.display='';
+  if(currentIdx===25)document.getElementById('nextBtn').textContent='Finish ✓';
+}
+
+function showHint(){hintVisible=true;document.getElementById('refCell').classList.add('show');document.getElementById('hintToggle').textContent='Hide hint';}
+function toggleHint(){if(hintVisible){hintVisible=false;document.getElementById('refCell').classList.remove('show');document.getElementById('hintToggle').textContent='Show hint';}else showHint();}
+
+function nextLetter(){
+  currentIdx++;if(currentIdx>=26){showWin();return;}
+  const next=document.getElementById('pd-'+currentIdx);if(next)next.classList.add('current');
+  loadLetter();updateStats();
+}
+
+function updateStats(){
+  document.getElementById('scoreVal').textContent=score;
+  document.getElementById('streakVal').textContent=streak;
+  document.getElementById('progressVal').textContent=(currentIdx+1)+'/26';
+  const badge=document.getElementById('streakBadge');
+  badge.textContent='🔥 '+streak;badge.className=streak>=3?'streak hot':'streak';
+}
+
+function showWin(){
+  document.getElementById('gameCard').style.display='none';document.getElementById('progressTrack').style.display='none';
+  const correct=results.filter(r=>r==='correct').length;
+  document.getElementById('winMode').textContent=currentMode==='random'?'🎲 Random':'🔤 A → Z';
+  document.getElementById('winCorrect').textContent=correct+' / 26';
+  document.getElementById('winStreak').textContent=bestStreak;
+  document.getElementById('winScore').textContent=score+' pts';
+  document.getElementById('winScreen').style.display='flex';
+}
+</script>
+</body>
+</html>
